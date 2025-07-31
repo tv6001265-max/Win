@@ -15,7 +15,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connect to MySQL once and reuse
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -27,28 +26,48 @@ def get_db_connection():
 @app.get("/api/latest-draw")
 def get_latest_draw():
     try:
+        # Run the scraper script
         result = subprocess.run(
             ["python", "scrape_latest.py"],
             capture_output=True,
             text=True,
             timeout=20
         )
-        if result.returncode != 0:
-            return {"error": "Scraper failed"}
 
-        data = json.loads(result.stdout)
+        if result.returncode != 0:
+            return {
+                "error": "Scraper failed",
+                "stderr": result.stderr.strip()
+            }
+
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            return {"error": f"Invalid JSON from scraper: {str(e)}"}
 
         # Save to MySQL
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO results (draw_number, result_number, size, color, created_at) VALUES (%s, %s, %s, %s, %s)",
-            (data["draw_number"], data["result_number"], data["size"], data["color"], datetime.now())
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO results (draw_number, result_number, size, color, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    data["draw_number"],
+                    data["result_number"],
+                    data["size"],
+                    data["color"],
+                    datetime.now()
+                )
+            )
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
 
         return data
+
     except Exception as e:
         return {"error": f"API error: {str(e)}"}
