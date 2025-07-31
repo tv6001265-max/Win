@@ -2,3 +2,4 @@ fastapi
 uvicorn
 playwright
 mysql-connector-python
+gunicorn
