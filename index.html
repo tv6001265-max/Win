@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wingo Results</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f4f6f8;
+    }
+    h1 { text-align: center; color: #333; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    th, td {
+      padding: 12px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: #007bff;
+      color: white;
+    }
+    .color-box {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .Green { background: green; }
+    .Red { background: red; }
+    .Violet { background: purple; }
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Wingo Live Results</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Draw #</th>
+        <th>Number</th>
+        <th>Size</th>
+        <th>Color</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="draw-table-body">
+      <tr><td colspan="5">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Prediction</h2>
+  <div id="prediction" style="padding:10px;background:#e9f7ef;border:1px solid #c3e6cb;border-radius:6px;">
+    Loading...
+  </div>
+
+  <script>
+    let lastDrawId = null;
+
+    async function fetchDraws() {
+      const res = await fetch('get_draws.php');
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        const table = document.getElementById('draw-table-body');
+        table.innerHTML = "";
+
+        data.forEach(row => {
+          const colorClass = row.color ? row.color : "None";
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${row.draw_number}</td>
+            <td>${row.result_number}</td>
+            <td>${row.size}</td>
+            <td><span class="color-box ${colorClass}"></span>${row.color}</td>
+            <td>${row.created_at}</td>
+          `;
+          table.appendChild(tr);
+        });
+
+        // Update lastDrawId
+        if (data[0] && data[0].draw_number !== lastDrawId) {
+          lastDrawId = data[0].draw_number;
+          fetchPrediction();
+        }
+      }
+    }
+
+    async function fetchPrediction() {
+      const res = await fetch('generate_prediction.php');
+      const data = await res.json();
+
+      const box = document.getElementById("prediction");
+      box.innerHTML = `
+        <strong>Next Prediction:</strong><br/>
+        Draw: ${data.predicted_number}<br/>
+        Size: ${data.predicted_size}<br/>
+        Color: ${data.predicted_color}<br/>
+        Reason: ${data.reason.join(", ")}
+      `;
+    }
+    function fetchPrediction() {
+  fetch("generate_prediction.php")
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("prediction").innerHTML = `
+        <strong>Prediction:</strong><br>
+        Last Draw: ${data.last_draw_number}<br>
+        Next Draw: ${data.next_draw_number}<br>
+        Size: ${data.predicted_size}<br>
+        Color: ${data.predicted_color}<br>
+        Reason: ${data.reason?.join("<br>") || "N/A"}
+      `;
+    })
+    .catch(err => {
+      console.error("Prediction error", err);
+    });
+}
+
+
+    // Start initial fetch and refresh every 5 seconds
+    fetchDraws();
+    setInterval(fetchDraws, 5000);
+  </script>
+  <script>
+  setInterval(() => {
+    fetch('generate_prediction.php')
+      .then(res => res.json())
+      .then(data => {
+        console.log("Prediction status:", data.status || data.message || data.error);
+      });
+  }, 10000);
+</script>
+
+</body>
+</html>
