@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+import chromedriver_autoinstaller
 import time
 
 app = FastAPI()
@@ -13,16 +14,18 @@ def get_size(number):
         return "N/A"
 
 def scrape_data():
+    # Install matching ChromeDriver
+    chromedriver_autoinstaller.install()
+
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
-
-    # Use correct path if needed: executable_path='/path/to/chromedriver'
+    options.add_argument("--disable-dev-shm-usage")
+    
     driver = webdriver.Chrome(options=options)
     driver.get("https://wingoanalyst.com/#/wingo_30s")
-
-    time.sleep(5)  # Wait for table to load
+    time.sleep(5)
 
     rows = driver.find_elements(By.CSS_SELECTOR, ".el-table__body-wrapper tr")
     data = []
@@ -50,4 +53,4 @@ def get_wingo_data():
         return {"status": "success", "data": scrape_data()}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-        
+    
