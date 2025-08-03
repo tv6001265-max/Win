@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import chromedriver_autoinstaller
+import os
 import time
 
 app = FastAPI()
@@ -14,15 +15,16 @@ def get_size(number):
         return "N/A"
 
 def scrape_data():
-    # Install matching ChromeDriver
+    # Install the correct chromedriver version
     chromedriver_autoinstaller.install()
 
     options = Options()
+    options.binary_location = "/usr/bin/chromium-browser"  # Location in Render
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    
+
     driver = webdriver.Chrome(options=options)
     driver.get("https://wingoanalyst.com/#/wingo_30s")
     time.sleep(5)
@@ -53,4 +55,3 @@ def get_wingo_data():
         return {"status": "success", "data": scrape_data()}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-    
