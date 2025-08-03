@@ -1,73 +1,22 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import subprocess
-import json
-import mysql.connector
-from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.get("/")
+def read_root():
+    return {"message": "Simple Web Scraper is running!"}
 
-def get_db_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="12345678",
-        database="wingo"
-    )
+@app.get("/scrape")
+def scrape_titles():
+    url = "https://example.com"  # Replace with a real URL
+    response = requests.get(url)
 
-@app.get("/api/latest-draw")
-def get_latest_draw():
-    try:
-        # Run the scraper script
-        result = subprocess.run(
-            ["python", "scrape_latest.py"],
-            capture_output=True,
-            text=True,
-            timeout=20
-        )
+    if response.status_code != 200:
+        return {"error": "Failed to fetch the page"}
 
-        if result.returncode != 0:
-            return {
-                "error": "Scraper failed",
-                "stderr": result.stderr.strip()
-            }
+    soup = BeautifulSoup(response.text, 'html.parser')
+    titles = [h2.get_text(strip=True) for h2 in soup.find_all('h2')]
 
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
-            return {"error": f"Invalid JSON from scraper: {str(e)}"}
-
-        # Save to MySQL
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-                INSERT INTO results (draw_number, result_number, size, color, created_at)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (
-                    data["draw_number"],
-                    data["result_number"],
-                    data["size"],
-                    data["color"],
-                    datetime.now()
-                )
-            )
-            conn.commit()
-        finally:
-            cursor.close()
-            conn.close()
-
-        return data
-
-    except Exception as e:
-        return {"error": f"API error: {str(e)}"}
+    return {"titles": titles}
